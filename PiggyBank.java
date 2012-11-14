@@ -47,7 +47,7 @@ public class PiggyBank {
 	
 	public static int getMaxAmount(int [] money,int m, int q)
 	{
-		dp=new int[1000][52];
+		dp=new int[1002][52];
 		for(int i=0;i<dp.length;i++)
 			for(int j=0;j<dp[i].length;j++)
 				dp[i][j]=-2;
@@ -55,9 +55,9 @@ public class PiggyBank {
 	}
 	
 	public static void main(String[] args) {
-		int money [] = {5,3,7};
-		int q=5;
-		int m=10;
+		int money [] = {74,39,127,95,63,140,99,96,154,18,137,162,14,88};
+		int q=40;
+		int m=243;
 		System.out.println(getMaxAmount(money,m,q));
 
 	}
