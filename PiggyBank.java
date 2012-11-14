@@ -13,36 +13,14 @@ public class PiggyBank {
 		if(i==money.length)
 			return q;
 		else
-		{
-			int m1,m2;
-			
-			
-			if(q+money[i]<=m&&dp[q+money[i]][i+1]!=-2)
-				m1=dp[q+money[i]][i+1];
+			if(dp[q][i]!=-2)
+				return dp[q][i];
 			else
 			{
-				m1=DP(money, m, q+money[i], i+1);
-				if(q+money[i]<=m)
-					dp[q+money[i]][i+1]=m1;
+				int max=Math.max(DP(money, m, q+money[i], i+1), DP(money, m, q-money[i], i+1));
+				dp[q][i]=max;
+				return max;
 			}
-				
-			
-			
-			if(q-money[i]>=0&&dp[q-money[i]][i+1]!=-2)
-				m2=dp[q-money[i]][i+1];
-			else
-			{
-				m2=DP(money, m, q-money[i], i+1);
-				if(q-money[i]>=0)
-					dp[q-money[i]][i+1]=m1;
-			}
-				
-				
-			
-			
-				return Math.max(m1, m2);
-		}
-			
 	}
 	
 	public static int getMaxAmount(int [] money,int m, int q)
