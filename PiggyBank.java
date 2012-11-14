@@ -16,7 +16,7 @@ public class PiggyBank {
 				String[]split2=DP(money, m, q-money[i], i+1).split(",");
 				int a=Integer.parseInt(split1[0]);
 				int b=Integer.parseInt(split2[0]);
-				String max=(a>b)?(a==-1?a+",,":a+","+"+"+split1[1]):(b==-1?b+",,":b+","+"-"+split2[1]);
+				String max=(a>b)?(a==-1?a+",;":a+","+"+"+split1[1]):(b==-1?b+",;":b+","+"-"+split2[1]);
 				dp[q][i]=max;
 				return max;
 			}
@@ -29,12 +29,9 @@ public class PiggyBank {
 	}
 	
 	public static void main(String[] args) {
-		int money [] = {74,39,127,95,63,140,99,96,154,18,137,162,14,88};
-		int q=40;
-		int m=243;
-		
-		
+		int money [] = {15,2,9,10};
+		int q=8;
+		int m=20;
 		System.out.println(getMaxAmount(money,m,q));
-
 	}
 }
