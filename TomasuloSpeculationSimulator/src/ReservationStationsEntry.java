@@ -41,7 +41,8 @@ public class ReservationStationsEntry {
 		   instruction.type.equals("NAND")||
 		   instruction.type.equals("JALR")||
 		   instruction.type.equals("RET")||
-		   instruction.type.equals("JMP"))
+		   instruction.type.equals("JMP")||
+		   instruction.type.equals("BEQ"))
 		{	
 			this.name="ADD"+addnum;
 		}

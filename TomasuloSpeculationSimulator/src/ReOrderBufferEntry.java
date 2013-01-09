@@ -28,7 +28,7 @@ public class ReOrderBufferEntry {
 		   type.equals("JALR"))
 			this.dest=this.instruction.Rd;
 		if(type.equals("SW"))
-			this.dest=this.instruction.imm+this.instruction.Rs;
+			this.dest=-1;
 		if(type.equals("BEQ"))
 			this.dest=antiPredict;
 	}
