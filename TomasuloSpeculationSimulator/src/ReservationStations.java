@@ -31,7 +31,8 @@ public class ReservationStations {
 		   instruction.type.equals("NAND")||
 		   instruction.type.equals("JALR")||
 		   instruction.type.equals("RET")||
-		   instruction.type.equals("JMP"))
+		   instruction.type.equals("JMP")||
+		   instruction.type.equals("BEQ"))
 			return IsAddFull();
 		if(instruction.type.equals("MUL")||
 		   instruction.type.equals("DIV"))
@@ -66,7 +67,8 @@ public class ReservationStations {
 		   e.Op.equals("NAND")||
 		   e.Op.equals("JALR")||
 		   e.Op.equals("RET")||
-		   e.Op.equals("JMP"))
+		   e.Op.equals("JMP")||
+		   e.Op.equals("BEQ"))
 			Add.add(e);
 		if(e.Op.equals("MUL")||
 		   e.Op.equals("DIV"))

@@ -19,13 +19,18 @@ public class RegisterFile {
 			
 		if(instruction.type.equals("JMP"))
 		{
-			PC+=(2+instruction.imm+instruction.Rs);
+			PC+=(2+instruction.imm);
 			return;
 		}
 			
-		if(instruction.type.equals("JALR")||instruction.type.equals("RET"))
+		if(instruction.type.equals("JALR"))
 		{
-			PC=instruction.Rs;
+			PC+=(instruction.imm+2);
+			return;
+		}
+		if(instruction.type.equals("RET"))
+		{
+			PC=this.registers[7];
 			return;
 		}
 		PC+=2;

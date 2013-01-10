@@ -1,21 +1,22 @@
 public class Memory {
-	private MainMemory mainMemoryD;
+	MainMemory mainMemoryD;
 	Cache DataCache;
-	private MainMemory mainMemoryI;
+	MainMemory mainMemoryI;
 	Cache InstructionCache;
 	
 	public Memory(
 			     int numberOfDCaches, 
-			     int allCacheDGeometry[][], 
-			     int numberOfICaches,
+			     int allCacheDGeometry[][],
 			     int mainMemoryLatencyD,
 			     int mainMemorySizeD, 
 			     int mainMemoryBlockSizeD,
+			     int numberOfICaches,
 			     int allCacheIGeometry[][],
 			     int mainMemoryLatencyI,
 			     int mainMemorySizeI, 
 			     int mainMemoryBlockSizeI)
 	{
+	
 		Cache currentLevel=null;
 		Cache nextLevel=null;
 		Cache previousLevel=null;
@@ -93,6 +94,16 @@ public class Memory {
 		
 		
 		
+	}
+
+	public Memory() {
+		// TODO Auto-generated constructor stub
+	}
+	
+	public static void main(String []args)
+	{
+		
+		Memory memory=new Memory();
 	}
 	
 }

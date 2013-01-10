@@ -71,4 +71,11 @@ public class MainMemory {
 	{
 		return (address>>1)&(this.wordOffsetMask);
 	}
+	
+	
+	public void Initialize(int address,MemoryWord value)
+	{
+		int wordAddress=address>>1;
+		this.mainMemory.put(wordAddress, value);
+	}
 }

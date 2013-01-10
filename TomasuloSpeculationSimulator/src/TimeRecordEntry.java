@@ -8,5 +8,9 @@ public class TimeRecordEntry {
 	public TimeRecordEntry(InstructionWord instruction)
 	{
 		this.instruction=instruction;
+		issued=-1;
+		executed=-1;
+		writeback=-1;
+		committed=-1;
 	}
 }

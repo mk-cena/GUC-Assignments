@@ -10,6 +10,7 @@ public class ReOrderBufferEntry {
 		this.instruction=instruction;
 		this.ready=false;
 		this.SetDest(antiPredict);
+		this.timeRecordEntry=new TimeRecordEntry(instruction);
 	}
 	public void InsertValue(int value)
 	{

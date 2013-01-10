@@ -5,7 +5,7 @@ public class MemoryWordTimeStamp {
 	{
 		this.latency=latency;
 		
-		this.words=new DataWord[data.length];
+		this.words=new MemoryWord[data.length];
 		for(int i=0;i<data.length;i++)
 			this.words[i]=data[i];
 	}

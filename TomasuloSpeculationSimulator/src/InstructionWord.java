@@ -19,21 +19,20 @@ public class InstructionWord extends MemoryWord{
 	int Rt;
 	int Rd;
 	int imm;
-	int id;
-	public InstructionWord(int address,int latency, String type, int id)
+	public InstructionWord(int address,int latency, String type)
 	{
 		super(address);
 		this.latency=latency;
 		this.type=type;
-		this.id=id;
 		if(type.equals("LW")||type.equals("SW"))
 			this.latency=-1;
 	}
 	//Load-Store
-	public InstructionWord(int address,int latency, String type,int id, int Rd, int Rs, int Rt, int imm)
+	public InstructionWord(int address,int latency, String type, int Rd, int Rs, int Rt, int imm)
 	{
-		this(address, latency, type, id);
-		if(type.equals(LW))
+		this(address, latency, type);
+		if(type.equals(LW)||
+		   type.equals(ADDI))
 		{
 			this.Rd=Rd;
 			this.Rs=Rs;
@@ -51,8 +50,7 @@ public class InstructionWord extends MemoryWord{
 		if(type.equals(ADD)||
 		   type.equals(MUL)||
 		   type.equals(DIV)||
-		   type.equals(NAND)||
-		   type.equals(ADDI))
+		   type.equals(NAND))
 		{
 			this.Rd=Rd;
 			this.Rt=Rt;
@@ -61,19 +59,12 @@ public class InstructionWord extends MemoryWord{
 		}
 		if(type.equals(JMP))
 		{
-			this.Rs=Rs;
 			this.imm=imm;
-			return;
-		}
-		if(type.equals(RET))
-		{
-			this.Rs=Rs;
 			return;
 		}
 		if(type.equals(JALR))
 		{
-			this.Rd=Rd;
-			this.Rs=Rs;
+			this.imm=imm;
 			return;
 		}
 	}

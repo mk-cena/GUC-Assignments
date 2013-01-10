@@ -1,4 +1,3 @@
-
 public class Scheduler {
 	int clock;
 	
@@ -12,19 +11,30 @@ public class Scheduler {
 	ReOrderBuffer rob;
 	
 	
-	boolean fetching=false;
+	boolean fetching;
 	int fetchingLatency;
-	public Scheduler(int startAddress)
+	boolean END;
+	boolean stopIssuing;
+	public Scheduler(int startAddress, Memory memory, int IBSize, int ROBSize, int RSLw, int RSSw, int RSAdd, int RSMul)
 	{
-		fetchingLatency=0;
+		clock=0;
+		stopIssuing=false;
+		fetching=true;
 		regFile=new RegisterFile(startAddress);
+		this.memory=memory;
+		this.instructionBuffer=new InstructionQueue(IBSize);
+		timeTable=new TimeRecord();
+		this.registerStatus=new RegisterStatus();
+		rob=new ReOrderBuffer(ROBSize);
+		rs=new ReservationStations(RSLw,RSSw,RSAdd,RSMul);
+		fetchingLatency=this.instructionBuffer.Fetch(regFile.PC, memory);
+		END=false;
 		
 	}
 	
 	public void Run()
 	{
-		ReOrderBufferEntry head= (ReOrderBufferEntry) rob.rob.GetHead();
-		while(!head.instruction.type.equals("END"))
+		while(!END)
 		{
 			Issue();
 			Execute();
@@ -36,7 +46,14 @@ public class Scheduler {
 	
 	public void Issue()
 	{
-		InstructionWord nextInstruction=instructionBuffer.instructionQueue.remove(0);
+		if(stopIssuing)
+			return;
+		
+		InstructionWord nextInstruction=null;
+		if(!fetching&&instructionBuffer.instructionQueue.size()>0)
+			nextInstruction=instructionBuffer.instructionQueue.get(0);
+			
+		
 		if(!fetching&&
 		   nextInstruction!=null&&
 		   nextInstruction.physicalAddress==regFile.PC&&
@@ -46,6 +63,8 @@ public class Scheduler {
 			ReOrderBufferEntry end=new ReOrderBufferEntry(nextInstruction,0);
 			end.ready=true;
 			this.rob.EnQueue(end);
+			instructionBuffer.instructionQueue.remove(0);
+			stopIssuing=true;
 			return;
 		}
 			
@@ -56,46 +75,42 @@ public class Scheduler {
 		  !rob.rob.IsFull()&&
 		  !rs.IsReservationStationFull(nextInstruction))
 		{
+			
 			ReservationStationsEntry e=new ReservationStationsEntry(null,null,-1,-1,-1,-1,-1,-1);
-			//All instruction use RS
-			if(this.registerStatus.registerStatus[nextInstruction.Rs]!=-1)
+			
+			
+			if(!nextInstruction.type.equals("JMP")&&
+			   !nextInstruction.type.equals("RET")&&
+			   !nextInstruction.type.equals("JALR"))
 			{
-				int h=this.registerStatus.registerStatus[nextInstruction.Rs];
-				ReOrderBufferEntry robe=((ReOrderBufferEntry)rob.rob.object[h]);
-				if(robe.ready)
+				
+				//All instruction use RS
+				if(this.registerStatus.registerStatus[nextInstruction.Rs]!=-1)
 				{
-					e.Qj=0;
-					e.Vj=robe.value;
+					int h=this.registerStatus.registerStatus[nextInstruction.Rs];
+					ReOrderBufferEntry robe=((ReOrderBufferEntry)rob.rob.object[h]);
+					if(robe.ready)
+					{
+						e.Qj=-1;
+						e.Vj=robe.value;
+						
+					}
+					else
+						e.Qj=h;
 				}
 				else
-					e.Qj=h;
-			}
-			else
-			{
-				e.Vj=this.regFile.registers[nextInstruction.Rs];
-				e.Qj=0;
-			}
-			e.Dest=rob.rob.tail;
-			e.SetOp(nextInstruction,rs.Load.size()+1,rs.Store.size()+1,rs.Add.size()+1,rs.Mul.size()+1);
-			rs.Insert(e);
-			int antiPredict=-1;
-			if(nextInstruction.type.equals("BEQ"))
-			{
-				if(nextInstruction.imm<0)
-					antiPredict=this.regFile.PC+2;
-				else
-					antiPredict=this.regFile.PC+2+nextInstruction.imm;
+				{
+					e.Vj=this.regFile.registers[nextInstruction.Rs];
+					e.Qj=-1;
+					
+				}
+				
 			}
 			
-			ReOrderBufferEntry reOrderBufferEntry=new ReOrderBufferEntry(nextInstruction,antiPredict);
-			reOrderBufferEntry.timeRecordEntry=new TimeRecordEntry(nextInstruction);
-			reOrderBufferEntry.timeRecordEntry.issued=this.clock+1;
-			rob.EnQueue(reOrderBufferEntry);
 			
 			//FP,SW and BEQ uses Rt
 			if(nextInstruction.type.equals("SW")||
 			   nextInstruction.type.equals("ADD")||
-			   nextInstruction.type.equals("ADDI")||
 			   nextInstruction.type.equals("MUL")||
 			   nextInstruction.type.equals("DIV")||
 			   nextInstruction.type.equals("BEQ")||
@@ -107,7 +122,7 @@ public class Scheduler {
 					ReOrderBufferEntry robe=((ReOrderBufferEntry)rob.rob.object[h]);
 					if(robe.ready)
 					{
-						e.Qk=0;
+						e.Qk=-1;
 						e.Vk=robe.value;
 					}
 					else
@@ -116,31 +131,59 @@ public class Scheduler {
 				else
 				{
 					e.Vk=this.regFile.registers[nextInstruction.Rt];
-					e.Qk=0;
+					e.Qk=-1;
 				}
 			}
 			
-			
+			e.Dest=rob.rob.tail;
 			//FP,LW and JALR uses RD
 			if(nextInstruction.type.equals("LW")||
 			   nextInstruction.type.equals("ADD")||
 			   nextInstruction.type.equals("ADDI")||
 			   nextInstruction.type.equals("MUL")||
 			   nextInstruction.type.equals("DIV")||
-			   nextInstruction.type.equals("BEQ")||
-			   nextInstruction.type.equals("NAND")||
-			   nextInstruction.type.equals("JALR"))
+			   nextInstruction.type.equals("NAND"))
 			{
+				
 				this.registerStatus.registerStatus[nextInstruction.Rd]=e.Dest;
 			}
 			
+			
+			//imm
 			if(nextInstruction.type.equals("LW")||
-			   nextInstruction.type.equals("SW"))
+			   nextInstruction.type.equals("SW")||
+			   nextInstruction.type.equals("JALR")||
+			   nextInstruction.type.equals("JMP")||
+			   nextInstruction.type.equals("ADDI")||
+			   nextInstruction.type.equals("BEQ"))
 			{
 				e.A=nextInstruction.imm;
 			}
+			
+			
+			
+			e.SetOp(nextInstruction,rs.Load.size()+1,rs.Store.size()+1,rs.Add.size()+1,rs.Mul.size()+1);
 			e.remainingCycles=nextInstruction.latency;
+			rs.Insert(e);
+			int antiPredict=-1;
+			if(nextInstruction.type.equals("BEQ"))
+			{
+				
+				if(nextInstruction.imm<0)
+					antiPredict=this.regFile.PC+2;
+				else
+					antiPredict=this.regFile.PC+2+nextInstruction.imm;
+			}
+			if(nextInstruction.type.equals("JALR"))
+				this.regFile.registers[7]=this.regFile.PC+2;
+			
+			ReOrderBufferEntry reOrderBufferEntry=new ReOrderBufferEntry(nextInstruction,antiPredict);
+			reOrderBufferEntry.timeRecordEntry.issued=this.clock+1;
+			rob.EnQueue(reOrderBufferEntry);
+			
 			this.regFile.UpdatePC(nextInstruction);
+			instructionBuffer.instructionQueue.remove(0);
+			
 			return;
 		}
 		
@@ -153,14 +196,15 @@ public class Scheduler {
 			return;
 		}
 		
-		if(fetching)
+		if(fetching&&fetchingLatency==0)
+			fetching=false;
+		
+		if(fetching&&fetchingLatency>0)
 		{
 			fetchingLatency--;
 			return;
 		}
 		
-		if(fetchingLatency==0)
-			fetching=false;
 	}
 	
 	public void Execute()
@@ -168,19 +212,19 @@ public class Scheduler {
 		//MUL reservation stations checking
 		for(int i=0; i<rs.Mul.size();i++)
 			if(rs.Mul.get(i)!=null&&
-			   rs.Mul.get(i).Qj==0&&
-			   rs.Mul.get(i).Qk==0)
+			   rs.Mul.get(i).Qj==-1&&
+			   rs.Mul.get(i).Qk==-1)
 			{
 				ReservationStationsEntry rse=rs.Mul.get(i);
 				if(rse.remainingCycles==0)
 				{
-					int op1=this.regFile.registers[rse.Vj];
-					int op2=this.regFile.registers[rse.Vk];
+					int op1=rse.Vj;
+					int op2=rse.Vk;
 					if(rse.Op.equals("MUL"))
 						((ReOrderBufferEntry)this.rob.rob.object[rse.Dest]).value=op1*op2;
 					else
 						((ReOrderBufferEntry)this.rob.rob.object[rse.Dest]).value=op1/op2;
-					((ReOrderBufferEntry)this.rob.rob.object[rse.Dest]).timeRecordEntry.executed=clock;
+					((ReOrderBufferEntry)this.rob.rob.object[rse.Dest]).timeRecordEntry.executed=clock+1;
 				}
 				else
 					 rse.remainingCycles--;
@@ -193,46 +237,55 @@ public class Scheduler {
 			{
 				ReservationStationsEntry e=rs.Add.get(i);
 				if((e.Op.equals("ADD")||
-				   e.Op.equals("ADDI")||
 				   e.Op.equals("NAND")||
 				   e.Op.equals("BEQ"))&&
-				   e.Qj==0&&
-				   e.Qk==0)
+				   e.Qj==-1&&
+				   e.Qk==-1)
 				{
 					if(e.remainingCycles==0)
 					{
-						int op1=this.regFile.registers[e.Vj];
-						int op2=this.regFile.registers[e.Vk];
+						int op1=e.Vj;
+						int op2=e.Vk;
 						
-						if(e.Op.equals("ADD")||e.Op.equals("ADDI"))
+						if(e.Op.equals("ADD"))
 							((ReOrderBufferEntry)this.rob.rob.object[e.Dest]).value=op1+op2;
 						else
 							if(e.Op.equals("NAND"))
 								((ReOrderBufferEntry)this.rob.rob.object[e.Dest]).value=(~(op1&op2));
 							else
 								if(e.Op.equals("BEQ"))
-									((ReOrderBufferEntry)this.rob.rob.object[e.Dest]).value=(op1-op2==0?1:0);
-						((ReOrderBufferEntry)this.rob.rob.object[e.Dest]).timeRecordEntry.executed=clock;
+								{
+									int diff=op1-op2;
+									if(e.A<0&&diff==0)
+										((ReOrderBufferEntry)this.rob.rob.object[e.Dest]).value=1;
+									if(e.A<0&&diff!=0)
+										((ReOrderBufferEntry)this.rob.rob.object[e.Dest]).value=0;
+									if(e.A>0&&diff==0)
+										((ReOrderBufferEntry)this.rob.rob.object[e.Dest]).value=0;
+									if(e.A>0&&diff!=0)
+										((ReOrderBufferEntry)this.rob.rob.object[e.Dest]).value=1;
+								}
+									
+						((ReOrderBufferEntry)this.rob.rob.object[e.Dest]).timeRecordEntry.executed=clock+1;
 					}
 					else
 						e.remainingCycles--;
 				}
 				else
-					if(e.Op.equals("RET")||e.Op.equals("JMP")||e.Op.equals("END"))
+					if(e.Op.equals("RET")||e.Op.equals("JMP")||e.Op.equals("END")||e.Op.equals("JALR"))
 					{
 						if(e.remainingCycles==0)
-							((ReOrderBufferEntry)this.rob.rob.object[e.Dest]).timeRecordEntry.executed=clock;
+							((ReOrderBufferEntry)this.rob.rob.object[e.Dest]).timeRecordEntry.executed=clock+1;
 						else
 							e.remainingCycles--;		
 					}
 					else
-						if(e.Op.equals("JALR"))
+						if(e.Op.equals("ADDI")&&e.Qj==-1)
 						{
 							if(e.remainingCycles==0)
 							{
-								
-								((ReOrderBufferEntry)this.rob.rob.object[e.Dest]).value=this.regFile.PC+2;
-								((ReOrderBufferEntry)this.rob.rob.object[e.Dest]).timeRecordEntry.executed=clock;
+								((ReOrderBufferEntry)this.rob.rob.object[e.Dest]).value=e.Vj+e.A;
+								((ReOrderBufferEntry)this.rob.rob.object[e.Dest]).timeRecordEntry.executed=clock+1;
 							}
 							else
 								e.remainingCycles--;
@@ -257,13 +310,14 @@ public class Scheduler {
 						break;
 					}
 			}
-			int firstLoadDest=this.regFile.registers[e.Vj]+e.A;
-			if(e!=null&&e.Qj==0&&(!storeFirst||(storeFirst&&store.dest!=-1&&store.dest!=firstLoadDest)))
+			int firstLoadDest=e.Vj+e.A;
+			
+			if((e!=null&&e.Qj==-1&&(!storeFirst||(storeFirst&&store.dest!=-1&&store.dest!=firstLoadDest))))
 			{
 				
 				if(e.remainingCycles==-1)
 				{
-					e.A+=this.regFile.registers[e.Vj];
+					e.A+=e.Vj;
 					MemoryWordTimeStamp mwts=this.memory.DataCache.ReadWord(e.A);
 					((ReOrderBufferEntry)this.rob.rob.object[e.Dest]).value=((DataWord) mwts.words[0]).data;
 					e.remainingCycles=mwts.latency;
@@ -271,7 +325,7 @@ public class Scheduler {
 				}
 				else
 					if(e.remainingCycles==0)
-						((ReOrderBufferEntry)this.rob.rob.object[e.Dest]).timeRecordEntry.executed=clock;
+						((ReOrderBufferEntry)this.rob.rob.object[e.Dest]).timeRecordEntry.executed=clock+1;
 					else
 						e.remainingCycles--;
 			}
@@ -282,15 +336,15 @@ public class Scheduler {
 		for(int i=0;i<this.rs.Store.size();i++)
 		{
 			ReservationStationsEntry e=this.rs.Store.get(i);
-			if(e!=null&&e.Qj==0)
+			if(e!=null&&e.Qj==-1)
 			{
 				if(e.remainingCycles==-1)
 					e.remainingCycles=1;
 				else
 					if(e.remainingCycles==0)
 					{
-						e.A+=this.regFile.registers[e.Vj];
-						((ReOrderBufferEntry)(this.rob.rob.object[e.Dest])).timeRecordEntry.executed=clock;
+						e.A+=e.Vj;
+						((ReOrderBufferEntry)(this.rob.rob.object[e.Dest])).timeRecordEntry.executed=clock+1;
 						((ReOrderBufferEntry)(this.rob.rob.object[e.Dest])).dest=e.A;
 					}
 					else
@@ -303,11 +357,398 @@ public class Scheduler {
 	
 	public void WriteBack()
 	{
-		
-	}
-	public void Commit()
-	{
-		
+		if(CheckMulRS())
+			return;
+		if(CheckLoadRS())
+			return;
+		if(CheckAddRS())
+			return;
+		if(CheckStoreRS())
+			return;
 	}
 
+	public void Commit()
+	{
+		ReOrderBufferEntry head=((ReOrderBufferEntry)rob.rob.GetHead());
+
+		if(head!=null&&head.ready&&!this.rob.rob.IsEmpty())
+		{
+			String type=head.instruction.type;
+			if(type.equals(InstructionWord.LW))
+			{
+				this.regFile.registers[head.dest]=head.value;
+				head.timeRecordEntry.committed=clock+1;
+				this.timeTable.timeRecords.add(head.timeRecordEntry);
+				if(this.registerStatus.registerStatus[head.dest]==rob.rob.head)
+					this.registerStatus.registerStatus[head.dest]=-1;
+				rob.rob.DeQueue();
+				return;
+			}
+			if(type.equals(InstructionWord.SW))
+			{
+				int latency=this.memory.DataCache.WriteWord(new DataWord(head.dest,head.value));
+				head.timeRecordEntry.committed=clock+latency;
+				this.timeTable.timeRecords.add(head.timeRecordEntry);
+				rob.rob.DeQueue();
+				return;
+				
+			}
+			if(type.equals(InstructionWord.ADD)||
+			   type.equals(InstructionWord.ADDI)||
+			   type.equals(InstructionWord.MUL)||
+			   type.equals(InstructionWord.DIV)||
+			   type.equals(InstructionWord.NAND))
+			{
+				this.regFile.registers[head.dest]=head.value;
+				head.timeRecordEntry.committed=clock+1;
+				this.timeTable.timeRecords.add(head.timeRecordEntry);
+				if(this.registerStatus.registerStatus[head.dest]==rob.rob.head)
+					this.registerStatus.registerStatus[head.dest]=-1;
+				rob.rob.DeQueue();
+				return;
+			}
+			if(type.equals(InstructionWord.BEQ))
+			{
+				if(head.value==0)
+				{
+					this.regFile.PC=head.dest;
+					this.rob.rob.Flush();
+					
+				}
+				head.timeRecordEntry.committed=clock+1;
+				this.timeTable.timeRecords.add(head.timeRecordEntry);
+				rob.rob.DeQueue();
+				return;
+			}
+			else
+			{
+				
+				head.timeRecordEntry.committed=-1;
+				this.timeTable.timeRecords.add(head.timeRecordEntry);
+				if(this.registerStatus.registerStatus[head.dest]==rob.rob.head)
+					this.registerStatus.registerStatus[head.dest]=-1;
+				rob.rob.DeQueue();
+				
+				if(head.instruction.type.equals("END"))
+					END=true;
+			}
+		}
+	}
+	
+	public boolean CheckMulRS()
+	{
+		for(int i=0; i<this.rs.Mul.size();i++)
+		{
+			ReservationStationsEntry e=this.rs.Mul.get(i);
+			ReOrderBufferEntry re=((ReOrderBufferEntry)this.rob.rob.object[e.Dest]);
+			if(e!=null&&re.timeRecordEntry.executed!=-1&&re.timeRecordEntry.writeback==-1)
+			{
+				for(int j=0;j<this.rs.Add.size();j++)
+				{
+
+					ReservationStationsEntry waiting=this.rs.Add.get(j);
+					if(waiting!=null&&(waiting.Qj==e.Dest||waiting.Qk==e.Dest))
+					{
+						if(waiting.Qj==e.Dest)
+						{
+							waiting.Qj=-1;
+							waiting.Vj=re.value;
+						}
+						if(waiting.Qk==e.Dest)
+						{
+							waiting.Qk=-1;
+							waiting.Vk=re.value;
+						}
+					}
+				}
+				for(int j=0;j<this.rs.Mul.size();j++)
+				{
+
+					ReservationStationsEntry waiting=this.rs.Mul.get(j);
+					if(waiting!=null&&(waiting.Qj==e.Dest||waiting.Qk==e.Dest))
+					{
+						if(waiting.Qj==e.Dest)
+						{
+							waiting.Qj=-1;
+							waiting.Vj=re.value;
+						}
+						if(waiting.Qk==e.Dest)
+						{
+							waiting.Qk=-1;
+							waiting.Vk=re.value;
+						}
+					}
+				}
+				
+				for(int j=0;j<this.rs.Load.size();j++)
+				{
+
+					ReservationStationsEntry waiting=this.rs.Load.get(j);
+					if(waiting!=null&&(waiting.Qj==e.Dest||waiting.Qk==e.Dest))
+					{
+						if(waiting.Qj==e.Dest)
+						{
+							waiting.Qj=-1;
+							waiting.Vj=re.value;
+						}
+						if(waiting.Qk==e.Dest)
+						{
+							waiting.Qk=-1;
+							waiting.Vk=re.value;
+						}
+					}
+				}
+				
+				for(int j=0;j<this.rs.Store.size();j++)
+				{
+
+					ReservationStationsEntry waiting=this.rs.Store.get(j);
+					if(waiting!=null&&(waiting.Qj==e.Dest||waiting.Qk==e.Dest))
+					{
+						if(waiting.Qj==e.Dest)
+						{
+							waiting.Qj=-1;
+							waiting.Vj=re.value;
+						}
+						if(waiting.Qk==e.Dest)
+						{
+							waiting.Qk=-1;
+							waiting.Vk=re.value;
+						}
+					}
+				}
+				
+				re.ready=true;
+				re.timeRecordEntry.writeback=clock+1;
+				rs.Mul.remove(i);
+				return true;
+			}
+		}
+		return false;
+	}
+		
+	public boolean CheckLoadRS()
+	{
+		for(int i=0; i<this.rs.Load.size();i++)
+		{
+			ReservationStationsEntry e=this.rs.Load.get(i);
+			ReOrderBufferEntry re=((ReOrderBufferEntry)this.rob.rob.object[e.Dest]);
+			if(e!=null&&re.timeRecordEntry.executed!=-1&&re.timeRecordEntry.writeback==-1)
+			{
+				for(int j=0;j<this.rs.Add.size();j++)
+				{
+
+					ReservationStationsEntry waiting=this.rs.Add.get(j);
+					if(waiting!=null&&(waiting.Qj==e.Dest||waiting.Qk==e.Dest))
+					{
+						if(waiting.Qj==e.Dest)
+						{
+							waiting.Qj=-1;
+							waiting.Vj=re.value;
+						}
+						if(waiting.Qk==e.Dest)
+						{
+							waiting.Qk=-1;
+							waiting.Vk=re.value;
+						}
+					}
+				}
+				for(int j=0;j<this.rs.Mul.size();j++)
+				{
+
+					ReservationStationsEntry waiting=this.rs.Mul.get(j);
+					if(waiting!=null&&(waiting.Qj==e.Dest||waiting.Qk==e.Dest))
+					{
+						if(waiting.Qj==e.Dest)
+						{
+							waiting.Qj=-1;
+							waiting.Vj=re.value;
+						}
+						if(waiting.Qk==e.Dest)
+						{
+							waiting.Qk=-1;
+							waiting.Vk=re.value;
+						}
+					}
+				}
+				
+				for(int j=0;j<this.rs.Load.size();j++)
+				{
+
+					ReservationStationsEntry waiting=this.rs.Load.get(j);
+					if(waiting!=null&&(waiting.Qj==e.Dest||waiting.Qk==e.Dest))
+					{
+						if(waiting.Qj==e.Dest)
+						{
+							waiting.Qj=-1;
+							waiting.Vj=re.value;
+						}
+						if(waiting.Qk==e.Dest)
+						{
+							waiting.Qk=-1;
+							waiting.Vk=re.value;
+						}
+					}
+				}
+				
+				for(int j=0;j<this.rs.Store.size();j++)
+				{
+
+					ReservationStationsEntry waiting=this.rs.Store.get(j);
+					if(waiting!=null&&(waiting.Qj==e.Dest||waiting.Qk==e.Dest))
+					{
+						if(waiting.Qj==e.Dest)
+						{
+							waiting.Qj=-1;
+							waiting.Vj=re.value;
+						}
+						if(waiting.Qk==e.Dest)
+						{
+							waiting.Qk=-1;
+							waiting.Vk=re.value;
+						}
+					}
+				}
+				
+				re.ready=true;
+				re.timeRecordEntry.writeback=clock+1;
+				rs.Load.remove(i);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	public boolean CheckAddRS()
+	{
+		for(int i=0; i<this.rs.Add.size();i++)
+		{
+			ReservationStationsEntry e=this.rs.Add.get(i);
+			ReOrderBufferEntry re=((ReOrderBufferEntry)this.rob.rob.object[e.Dest]);
+			if(e!=null&&
+			  re.timeRecordEntry.executed!=-1&&
+			  re.timeRecordEntry.writeback==-1&&
+			 (e.Op.equals("ADD")||
+			  e.Op.equals("ADDI")||
+			  e.Op.equals("NAND")||
+			  e.Op.equals("JALR")))
+			{
+				for(int j=0;j<this.rs.Add.size();j++)
+				{
+
+					ReservationStationsEntry waiting=this.rs.Add.get(j);
+					if(waiting!=null&&(waiting.Qj==e.Dest||waiting.Qk==e.Dest))
+					{
+						if(waiting.Qj==e.Dest)
+						{
+							waiting.Qj=-1;
+							waiting.Vj=re.value;
+						}
+						if(waiting.Qk==e.Dest)
+						{
+							waiting.Qk=-1;
+							waiting.Vk=re.value;
+						}
+					}
+				}
+				for(int j=0;j<this.rs.Mul.size();j++)
+				{
+
+					ReservationStationsEntry waiting=this.rs.Mul.get(j);
+					if(waiting!=null&&(waiting.Qj==e.Dest||waiting.Qk==e.Dest))
+					{
+						if(waiting.Qj==e.Dest)
+						{
+							waiting.Qj=-1;
+							waiting.Vj=re.value;
+						}
+						if(waiting.Qk==e.Dest)
+						{
+							waiting.Qk=-1;
+							waiting.Vk=re.value;
+						}
+					}
+				}
+				
+				for(int j=0;j<this.rs.Load.size();j++)
+				{
+
+					ReservationStationsEntry waiting=this.rs.Load.get(j);
+					if(waiting!=null&&(waiting.Qj==e.Dest||waiting.Qk==e.Dest))
+					{
+						if(waiting.Qj==e.Dest)
+						{
+							waiting.Qj=-1;
+							waiting.Vj=re.value;
+						}
+						if(waiting.Qk==e.Dest)
+						{
+							waiting.Qk=-1;
+							waiting.Vk=re.value;
+						}
+					}
+				}
+				
+				for(int j=0;j<this.rs.Store.size();j++)
+				{
+
+					ReservationStationsEntry waiting=this.rs.Store.get(j);
+					if(waiting!=null&&(waiting.Qj==e.Dest||waiting.Qk==e.Dest))
+					{
+						if(waiting.Qj==e.Dest)
+						{
+							waiting.Qj=-1;
+							waiting.Vj=re.value;
+						}
+						if(waiting.Qk==e.Dest)
+						{
+							waiting.Qk=-1;
+							waiting.Vk=re.value;
+						}
+					}
+				}
+				
+				re.ready=true;
+				re.timeRecordEntry.writeback=clock+1;
+				rs.Add.remove(i);
+				return true;
+			}
+			else
+				if(e!=null&&
+				  re.timeRecordEntry.executed!=-1&&
+			      re.timeRecordEntry.writeback==-1&&
+				  (e.Op.equals("RET")||
+				   e.Op.equals("JMP")||
+				   e.Op.equals("BEQ")))
+				{
+					re.ready=true;
+					re.timeRecordEntry.writeback=clock+1;
+					rs.Add.remove(i);
+					return true;
+				}
+		}
+		return false;
+	}
+
+	public boolean CheckStoreRS()
+	{
+		for(int i=0; i<this.rs.Store.size();i++)
+		{
+			
+			ReservationStationsEntry e=this.rs.Store.get(i);
+			ReOrderBufferEntry re=((ReOrderBufferEntry)this.rob.rob.object[e.Dest]);
+			if(e!=null&&
+			  re.timeRecordEntry.executed!=-1&&
+			  re.timeRecordEntry.writeback==-1&&
+			  e.Qk==-1)
+			{
+				re.ready=true;
+				re.timeRecordEntry.writeback=clock+1;
+				rs.Store.remove(i);
+				re.value=e.Vk;
+				return true;
+			}
+		}
+		return false;
+	}
 }

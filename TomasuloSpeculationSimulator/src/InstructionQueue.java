@@ -6,6 +6,7 @@ public class InstructionQueue {
 	public InstructionQueue(int size)
 	{
 		instructionQueue=new ArrayList<InstructionWord>();
+		this.size=size;
 	}
 	
 	public int Fetch(int pc, Memory memory)
@@ -16,10 +17,11 @@ public class InstructionQueue {
 		while(this.instructionQueue.size()<this.size)
 		{
 			MemoryWordTimeStamp mwts=memory.InstructionCache.ReadWord(pc);
-			instructionQueue.add(0, (InstructionWord) mwts.words[0]);
+			if(mwts==null||mwts.words==null||mwts.words[0]==null)
+				break;
+			instructionQueue.add(((InstructionWord) mwts.words[0]));
 			pc+=2;
 			latency+=mwts.latency;
-			
 		}
 		return latency;
 		

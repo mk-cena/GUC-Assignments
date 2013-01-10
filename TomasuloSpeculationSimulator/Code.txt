@@ -1,3 +1,16 @@
-codefmsfklsdf
-fklsadmflsdflsd
-klasmflasmlfdasd
+#Code
+Start Address:0
+ADDI $5 $2 5
+ADDI $5 $5 5
+ADDI $5 $5 5
+MUL $3 $5 $5
+ADD $2 $5 $5
+JALR 6
+ADDI $4 $0 2
+LW $1 $0 20
+END
+DIV $2 $2 $2
+RET
+#Data
+Address:Data
+20:6
