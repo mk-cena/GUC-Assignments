@@ -331,8 +331,9 @@ public class Cache {
 	public int WriteWord(DataWord dataword)
 	{
 		Cache currentCache=this;
-		MemoryWord[] data=new DataWord[this.wordsPerBlock];
+		MemoryWord[] data=new MemoryWord[this.wordsPerBlock];
 		boolean found=false;
+		
 		while(currentCache!=null)
 		{
 			int index=currentCache.GetSetAddress(dataword.physicalAddress);
@@ -343,16 +344,21 @@ public class Cache {
 					for(int i=0; i<cacheSet.length;i++)
 						if(cacheSet[i]!=null&&cacheSet[i].tag==tag)
 						{
+							
 							int k=this.GetWordLocationInBlock(dataword.physicalAddress)/this.wordsPerBlock;
 							k*=this.wordsPerBlock;
 							for(int j=k;j<k+this.wordsPerBlock;j++)
 								data[j-k]=currentCache.cache.get(index)[i].words[j];
 							found=true;
+							
+							break;
 						}
 				if(!found)
 					currentCache=currentCache.nextLevel;
+				else
+					break;
+				
 		}
-		
 		if(currentCache==null)
 		{
 			currentCache=this;
@@ -363,8 +369,12 @@ public class Cache {
 			int k=mainMemory.GetWordLocationInBlock(dataword.physicalAddress)/this.wordsPerBlock;
 			k*=this.wordsPerBlock;
 			for(int i=k; i<k+this.wordsPerBlock;i++)
+			{
 				data[i-k]=words[k];
+			}
 		}
+		
+	    data[this.GetWordLocationInBlock(dataword.physicalAddress)]=dataword;
 		return this.WriteBlock(dataword.physicalAddress, data);	
 	}
 		

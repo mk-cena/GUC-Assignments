@@ -26,6 +26,8 @@ public class MainMemory {
 		numberOfAddressBits=(int) Math.ceil(Math.log(size/2)/Math.log(2));
 		this.wordOffsetMask=0;
 		CreateWordOffsetMask();
+		//for(int i=0;i<size/2;i++)
+			//this.mainMemory.put(i, new MemoryWord(i));
 	}
 	
 	

@@ -12,7 +12,7 @@ JALR:3
 BEQ:3
 #Buffers Size
 InstructionBuffer Size:4
-ReOrderBuffer Size:5
+ReOrderBuffer Size:10
 #Reservation Stations
 Load:Store:Add:Mul
-3:3:6:2
+3:8:6:2

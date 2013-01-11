@@ -41,11 +41,13 @@ public class Scheduler {
 			WriteBack();
 			Commit();
 			clock++;
+			
 		}
 	}
 	
 	public void Issue()
 	{
+	
 		if(stopIssuing)
 			return;
 		
@@ -133,6 +135,8 @@ public class Scheduler {
 					e.Vk=this.regFile.registers[nextInstruction.Rt];
 					e.Qk=-1;
 				}
+				
+			
 			}
 			
 			e.Dest=rob.rob.tail;
@@ -177,13 +181,12 @@ public class Scheduler {
 			if(nextInstruction.type.equals("JALR"))
 				this.regFile.registers[7]=this.regFile.PC+2;
 			
+			
 			ReOrderBufferEntry reOrderBufferEntry=new ReOrderBufferEntry(nextInstruction,antiPredict);
 			reOrderBufferEntry.timeRecordEntry.issued=this.clock+1;
 			rob.EnQueue(reOrderBufferEntry);
-			
 			this.regFile.UpdatePC(nextInstruction);
 			instructionBuffer.instructionQueue.remove(0);
-			
 			return;
 		}
 		
@@ -193,6 +196,7 @@ public class Scheduler {
 		{
 			fetchingLatency=this.instructionBuffer.Fetch(regFile.PC, memory);
 			fetching=true;
+			
 			return;
 		}
 		
@@ -215,11 +219,14 @@ public class Scheduler {
 			   rs.Mul.get(i).Qj==-1&&
 			   rs.Mul.get(i).Qk==-1)
 			{
+				
 				ReservationStationsEntry rse=rs.Mul.get(i);
 				if(rse.remainingCycles==0)
 				{
+					
 					int op1=rse.Vj;
 					int op2=rse.Vk;
+					rse.remainingCycles=-5;
 					if(rse.Op.equals("MUL"))
 						((ReOrderBufferEntry)this.rob.rob.object[rse.Dest]).value=op1*op2;
 					else
@@ -227,7 +234,9 @@ public class Scheduler {
 					((ReOrderBufferEntry)this.rob.rob.object[rse.Dest]).timeRecordEntry.executed=clock+1;
 				}
 				else
-					 rse.remainingCycles--;
+					if(rse.remainingCycles!=-6)
+						rse.remainingCycles--;
+					
 					
 			}
 		
@@ -246,7 +255,7 @@ public class Scheduler {
 					{
 						int op1=e.Vj;
 						int op2=e.Vk;
-						
+						e.remainingCycles=-5;
 						if(e.Op.equals("ADD"))
 							((ReOrderBufferEntry)this.rob.rob.object[e.Dest]).value=op1+op2;
 						else
@@ -269,27 +278,36 @@ public class Scheduler {
 						((ReOrderBufferEntry)this.rob.rob.object[e.Dest]).timeRecordEntry.executed=clock+1;
 					}
 					else
-						e.remainingCycles--;
+						if(e.remainingCycles!=-6)
+							e.remainingCycles--;
 				}
 				else
 					if(e.Op.equals("RET")||e.Op.equals("JMP")||e.Op.equals("END")||e.Op.equals("JALR"))
 					{
 						if(e.remainingCycles==0)
+						{
+							e.remainingCycles=-5;
 							((ReOrderBufferEntry)this.rob.rob.object[e.Dest]).timeRecordEntry.executed=clock+1;
+						}
+							
 						else
-							e.remainingCycles--;		
+							if(e.remainingCycles!=-6)
+								e.remainingCycles--;
 					}
 					else
 						if(e.Op.equals("ADDI")&&e.Qj==-1)
 						{
 							if(e.remainingCycles==0)
 							{
+								
+								e.remainingCycles=-5;
 								((ReOrderBufferEntry)this.rob.rob.object[e.Dest]).value=e.Vj+e.A;
+								
 								((ReOrderBufferEntry)this.rob.rob.object[e.Dest]).timeRecordEntry.executed=clock+1;
 							}
 							else
-								e.remainingCycles--;
-								
+								if(e.remainingCycles!=-6)
+									e.remainingCycles--;
 						}
 			}
 		//Load reservation stations checking
@@ -299,25 +317,30 @@ public class Scheduler {
 			ReservationStationsEntry e=this.rs.Load.get(i);
 			ReOrderBufferEntry store=null;
 			ReOrderBufferEntry load=(ReOrderBufferEntry)this.rob.rob.object[this.rs.Load.get(i).Dest];
-			for(int j=0;j<this.rs.Store.size();j++)
+			
+			for(int j=0;j<this.rob.rob.object.length;j++)
 			{
-				ReservationStationsEntry temp=rs.Store.get(j);
-				store=(ReOrderBufferEntry)this.rob.rob.object[temp.Dest];
+				
+				store=(ReOrderBufferEntry)this.rob.rob.object[j];
 				if(store!=null&&
-				   store.timeRecordEntry.issued<load.timeRecordEntry.issued)
+				   store.instruction.type.equals("SW")&&
+				   store.timeRecordEntry.issued<load.timeRecordEntry.issued&&
+				   store.timeRecordEntry.committed==-1)
 					{
 						storeFirst=true;
 						break;
 					}
 			}
 			int firstLoadDest=e.Vj+e.A;
-			
-			if((e!=null&&e.Qj==-1&&(!storeFirst||(storeFirst&&store.dest!=-1&&store.dest!=firstLoadDest))))
+			if((e!=null&&e.Qj==-1&&(!storeFirst||(storeFirst&&store.dest!=-1&&store.dest!=firstLoadDest&&e.remainingCycles==-1)))||(e!=null&&e.remainingCycles!=-1))
 			{
+				
 				
 				if(e.remainingCycles==-1)
 				{
+				
 					e.A+=e.Vj;
+					System.out.println(e.A);
 					MemoryWordTimeStamp mwts=this.memory.DataCache.ReadWord(e.A);
 					((ReOrderBufferEntry)this.rob.rob.object[e.Dest]).value=((DataWord) mwts.words[0]).data;
 					e.remainingCycles=mwts.latency;
@@ -325,9 +348,15 @@ public class Scheduler {
 				}
 				else
 					if(e.remainingCycles==0)
+					{
+						
+						e.remainingCycles=-5;
 						((ReOrderBufferEntry)this.rob.rob.object[e.Dest]).timeRecordEntry.executed=clock+1;
+					}
 					else
-						e.remainingCycles--;
+						if(e.remainingCycles!=-6)
+							e.remainingCycles--;
+						
 			}
 				
 		}
@@ -335,20 +364,26 @@ public class Scheduler {
 		//Store reservation stations checking
 		for(int i=0;i<this.rs.Store.size();i++)
 		{
+			
 			ReservationStationsEntry e=this.rs.Store.get(i);
+			
 			if(e!=null&&e.Qj==-1)
 			{
+				
 				if(e.remainingCycles==-1)
 					e.remainingCycles=1;
 				else
 					if(e.remainingCycles==0)
 					{
+						
 						e.A+=e.Vj;
+						e.remainingCycles=-5;
 						((ReOrderBufferEntry)(this.rob.rob.object[e.Dest])).timeRecordEntry.executed=clock+1;
 						((ReOrderBufferEntry)(this.rob.rob.object[e.Dest])).dest=e.A;
 					}
 					else
-						e.remainingCycles--;
+						if(e.remainingCycles!=-6)
+							e.remainingCycles--;
 			}
 		}
 		
@@ -370,14 +405,17 @@ public class Scheduler {
 	public void Commit()
 	{
 		ReOrderBufferEntry head=((ReOrderBufferEntry)rob.rob.GetHead());
-
-		if(head!=null&&head.ready&&!this.rob.rob.IsEmpty())
+		int wb=-1;
+		if(head!=null)
+			wb=head.timeRecordEntry.writeback;
+		if(head!=null&&head.ready&&!this.rob.rob.IsEmpty()&&wb<clock)
 		{
+			
 			String type=head.instruction.type;
 			if(type.equals(InstructionWord.LW))
 			{
 				this.regFile.registers[head.dest]=head.value;
-				head.timeRecordEntry.committed=clock+1;
+				head.timeRecordEntry.committed=clock;
 				this.timeTable.timeRecords.add(head.timeRecordEntry);
 				if(this.registerStatus.registerStatus[head.dest]==rob.rob.head)
 					this.registerStatus.registerStatus[head.dest]=-1;
@@ -386,10 +424,12 @@ public class Scheduler {
 			}
 			if(type.equals(InstructionWord.SW))
 			{
-				int latency=this.memory.DataCache.WriteWord(new DataWord(head.dest,head.value));
-				head.timeRecordEntry.committed=clock+latency;
-				this.timeTable.timeRecords.add(head.timeRecordEntry);
-				rob.rob.DeQueue();
+					int latency= this.memory.DataCache.WriteWord(new DataWord(head.dest,head.value));
+					head.timeRecordEntry.committed=clock;
+					this.timeTable.timeRecords.add(head.timeRecordEntry);
+					head.remainingCycles=latency;
+					rob.rob.DeQueue();
+				//System.out.println(((DataWord)this.memory.DataCache.ReadWord(head.dest).words[0]).data);
 				return;
 				
 			}
@@ -400,7 +440,7 @@ public class Scheduler {
 			   type.equals(InstructionWord.NAND))
 			{
 				this.regFile.registers[head.dest]=head.value;
-				head.timeRecordEntry.committed=clock+1;
+				head.timeRecordEntry.committed=clock;
 				this.timeTable.timeRecords.add(head.timeRecordEntry);
 				if(this.registerStatus.registerStatus[head.dest]==rob.rob.head)
 					this.registerStatus.registerStatus[head.dest]=-1;
@@ -409,21 +449,30 @@ public class Scheduler {
 			}
 			if(type.equals(InstructionWord.BEQ))
 			{
+				head.timeRecordEntry.committed=clock;
+				this.timeTable.timeRecords.add(head.timeRecordEntry);
 				if(head.value==0)
 				{
 					this.regFile.PC=head.dest;
 					this.rob.rob.Flush();
-					
+					this.instructionBuffer.instructionQueue.clear();
+					this.rs.Add.clear();
+					this.rs.Load.clear();
+					this.rs.Store.clear();
+					this.rs.Mul.clear();
+
 				}
-				head.timeRecordEntry.committed=clock+1;
-				this.timeTable.timeRecords.add(head.timeRecordEntry);
-				rob.rob.DeQueue();
+				else
+				{
+					rob.rob.DeQueue();
+				}
+					
 				return;
 			}
 			else
 			{
 				
-				head.timeRecordEntry.committed=-1;
+				head.timeRecordEntry.committed=clock;
 				this.timeTable.timeRecords.add(head.timeRecordEntry);
 				if(this.registerStatus.registerStatus[head.dest]==rob.rob.head)
 					this.registerStatus.registerStatus[head.dest]=-1;
@@ -431,17 +480,21 @@ public class Scheduler {
 				
 				if(head.instruction.type.equals("END"))
 					END=true;
+				
 			}
 		}
+		
 	}
 	
 	public boolean CheckMulRS()
 	{
 		for(int i=0; i<this.rs.Mul.size();i++)
 		{
+			
 			ReservationStationsEntry e=this.rs.Mul.get(i);
 			ReOrderBufferEntry re=((ReOrderBufferEntry)this.rob.rob.object[e.Dest]);
-			if(e!=null&&re.timeRecordEntry.executed!=-1&&re.timeRecordEntry.writeback==-1)
+			int executed=re.timeRecordEntry.executed;
+			if(e!=null&&re.timeRecordEntry.executed!=-1&&re.timeRecordEntry.writeback==-1&&e.remainingCycles==-6&&clock>executed)
 			{
 				for(int j=0;j<this.rs.Add.size();j++)
 				{
@@ -501,7 +554,6 @@ public class Scheduler {
 				
 				for(int j=0;j<this.rs.Store.size();j++)
 				{
-
 					ReservationStationsEntry waiting=this.rs.Store.get(j);
 					if(waiting!=null&&(waiting.Qj==e.Dest||waiting.Qk==e.Dest))
 					{
@@ -519,7 +571,7 @@ public class Scheduler {
 				}
 				
 				re.ready=true;
-				re.timeRecordEntry.writeback=clock+1;
+				re.timeRecordEntry.writeback=clock;
 				rs.Mul.remove(i);
 				return true;
 			}
@@ -528,12 +580,14 @@ public class Scheduler {
 	}
 		
 	public boolean CheckLoadRS()
-	{
+	{			
 		for(int i=0; i<this.rs.Load.size();i++)
 		{
+			
 			ReservationStationsEntry e=this.rs.Load.get(i);
 			ReOrderBufferEntry re=((ReOrderBufferEntry)this.rob.rob.object[e.Dest]);
-			if(e!=null&&re.timeRecordEntry.executed!=-1&&re.timeRecordEntry.writeback==-1)
+			int executed=re.timeRecordEntry.executed;
+			if(e!=null&&re.timeRecordEntry.executed!=-1&&re.timeRecordEntry.writeback==-1&&e.remainingCycles==-6&&clock>executed)
 			{
 				for(int j=0;j<this.rs.Add.size();j++)
 				{
@@ -574,7 +628,6 @@ public class Scheduler {
 				
 				for(int j=0;j<this.rs.Load.size();j++)
 				{
-
 					ReservationStationsEntry waiting=this.rs.Load.get(j);
 					if(waiting!=null&&(waiting.Qj==e.Dest||waiting.Qk==e.Dest))
 					{
@@ -593,7 +646,7 @@ public class Scheduler {
 				
 				for(int j=0;j<this.rs.Store.size();j++)
 				{
-
+					
 					ReservationStationsEntry waiting=this.rs.Store.get(j);
 					if(waiting!=null&&(waiting.Qj==e.Dest||waiting.Qk==e.Dest))
 					{
@@ -611,10 +664,11 @@ public class Scheduler {
 				}
 				
 				re.ready=true;
-				re.timeRecordEntry.writeback=clock+1;
+				re.timeRecordEntry.writeback=clock;
 				rs.Load.remove(i);
 				return true;
 			}
+		
 		}
 		return false;
 	}
@@ -623,11 +677,15 @@ public class Scheduler {
 	{
 		for(int i=0; i<this.rs.Add.size();i++)
 		{
+			
 			ReservationStationsEntry e=this.rs.Add.get(i);
 			ReOrderBufferEntry re=((ReOrderBufferEntry)this.rob.rob.object[e.Dest]);
+			int executed=re.timeRecordEntry.executed;
 			if(e!=null&&
 			  re.timeRecordEntry.executed!=-1&&
 			  re.timeRecordEntry.writeback==-1&&
+			  e.remainingCycles==-6&&
+			  clock>executed&&
 			 (e.Op.equals("ADD")||
 			  e.Op.equals("ADDI")||
 			  e.Op.equals("NAND")||
@@ -672,7 +730,7 @@ public class Scheduler {
 				
 				for(int j=0;j<this.rs.Load.size();j++)
 				{
-
+					
 					ReservationStationsEntry waiting=this.rs.Load.get(j);
 					if(waiting!=null&&(waiting.Qj==e.Dest||waiting.Qk==e.Dest))
 					{
@@ -709,7 +767,7 @@ public class Scheduler {
 				}
 				
 				re.ready=true;
-				re.timeRecordEntry.writeback=clock+1;
+				re.timeRecordEntry.writeback=clock;
 				rs.Add.remove(i);
 				return true;
 			}
@@ -717,12 +775,14 @@ public class Scheduler {
 				if(e!=null&&
 				  re.timeRecordEntry.executed!=-1&&
 			      re.timeRecordEntry.writeback==-1&&
+			      e.remainingCycles==-6&&
+			      clock>executed&&
 				  (e.Op.equals("RET")||
 				   e.Op.equals("JMP")||
 				   e.Op.equals("BEQ")))
 				{
 					re.ready=true;
-					re.timeRecordEntry.writeback=clock+1;
+					re.timeRecordEntry.writeback=clock;
 					rs.Add.remove(i);
 					return true;
 				}
@@ -737,13 +797,17 @@ public class Scheduler {
 			
 			ReservationStationsEntry e=this.rs.Store.get(i);
 			ReOrderBufferEntry re=((ReOrderBufferEntry)this.rob.rob.object[e.Dest]);
+			int executed=re.timeRecordEntry.executed;
 			if(e!=null&&
 			  re.timeRecordEntry.executed!=-1&&
 			  re.timeRecordEntry.writeback==-1&&
-			  e.Qk==-1)
+			  e.Qk==-1&&
+			  clock>executed&&
+			  e.remainingCycles==-6)
 			{
+				
 				re.ready=true;
-				re.timeRecordEntry.writeback=clock+1;
+				re.timeRecordEntry.writeback=clock;
 				rs.Store.remove(i);
 				re.value=e.Vk;
 				return true;

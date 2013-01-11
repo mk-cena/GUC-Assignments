@@ -4,6 +4,7 @@ public class ReOrderBufferEntry {
 	int value;
 	boolean ready;
 	TimeRecordEntry timeRecordEntry;
+	int remainingCycles;
 	
 	public ReOrderBufferEntry(InstructionWord instruction, int antiPredict)
 	{
@@ -11,6 +12,7 @@ public class ReOrderBufferEntry {
 		this.ready=false;
 		this.SetDest(antiPredict);
 		this.timeRecordEntry=new TimeRecordEntry(instruction);
+		this.remainingCycles=-12;
 	}
 	public void InsertValue(int value)
 	{

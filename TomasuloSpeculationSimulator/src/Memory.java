@@ -100,10 +100,24 @@ public class Memory {
 		// TODO Auto-generated constructor stub
 	}
 	
-	public static void main(String []args)
-	{
-		
-		Memory memory=new Memory();
-	}
-	
+//	public static void main(String []args)
+//	{
+//		int dg[][] ={
+//				{1,32,2,1,1,1},
+//				{6,64,4,2,0,0},
+//				{25,128,8,4,0,0}
+//		};
+//
+//		Memory memory=new Memory(3,dg,50,512,16,3,dg,50,512,16);
+//		
+//		MemoryWord dw=new DataWord(20,666);
+//		int latency=memory.DataCache.WriteWord((DataWord) dw);
+//		MemoryWord mw[]=new MemoryWord[2];
+//		mw[0]=new DataWord(20,666);
+//		mw[1]=new DataWord(22,777);
+//		//memory.DataCache.WriteBlock(20, mw);
+//		int word=((DataWord)memory.DataCache.ReadWord(20).words[0]).data;
+//		System.out.println(word);
+//	}
+//	
 }
