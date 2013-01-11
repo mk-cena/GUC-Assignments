@@ -1,0 +1,18 @@
+#Latencies(Cycles)
+ADD:1
+MUL:6
+DIV:12
+NAND:1
+ADDI:1
+LW:-1
+SW:-1
+RET:3
+JMP:3
+JALR:3
+BEQ:3
+#Buffers Size
+InstructionBuffer Size:4
+ReOrderBuffer Size:10
+#Reservation Stations
+Load:Store:Add:Mul
+3:8:6:2
