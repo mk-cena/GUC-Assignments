@@ -36,6 +36,7 @@ public class Scheduler {
 	{
 		while(!END)
 		{
+		
 			Issue();
 			Execute();
 			WriteBack();
@@ -86,8 +87,9 @@ public class Scheduler {
 			   !nextInstruction.type.equals("JALR"))
 			{
 				
+					
 				//All instruction use RS
-				if(this.registerStatus.registerStatus[nextInstruction.Rs]!=-1)
+				if(this.registerStatus.registerStatus[nextInstruction.Rs]!=-1&&!rob.rob.IsEmpty())
 				{
 					int h=this.registerStatus.registerStatus[nextInstruction.Rs];
 					ReOrderBufferEntry robe=((ReOrderBufferEntry)rob.rob.object[h]);
@@ -99,6 +101,7 @@ public class Scheduler {
 					}
 					else
 						e.Qj=h;
+						
 				}
 				else
 				{
@@ -106,6 +109,7 @@ public class Scheduler {
 					e.Qj=-1;
 					
 				}
+				
 				
 			}
 			
@@ -140,6 +144,7 @@ public class Scheduler {
 			}
 			
 			e.Dest=rob.rob.tail;
+			
 			//FP,LW and JALR uses RD
 			if(nextInstruction.type.equals("LW")||
 			   nextInstruction.type.equals("ADD")||
@@ -162,12 +167,18 @@ public class Scheduler {
 			   nextInstruction.type.equals("BEQ"))
 			{
 				e.A=nextInstruction.imm;
+				
 			}
 			
 			
 			
 			e.SetOp(nextInstruction,rs.Load.size()+1,rs.Store.size()+1,rs.Add.size()+1,rs.Mul.size()+1);
 			e.remainingCycles=nextInstruction.latency;
+			if(nextInstruction.type.equals("LW")||nextInstruction.type.equals("SW"))
+			{
+				e.remainingCycles=-1;
+			}
+				
 			rs.Insert(e);
 			int antiPredict=-1;
 			if(nextInstruction.type.equals("BEQ"))
@@ -187,6 +198,7 @@ public class Scheduler {
 			rob.EnQueue(reOrderBufferEntry);
 			this.regFile.UpdatePC(nextInstruction);
 			instructionBuffer.instructionQueue.remove(0);
+			
 			return;
 		}
 		
@@ -257,7 +269,11 @@ public class Scheduler {
 						int op2=e.Vk;
 						e.remainingCycles=-5;
 						if(e.Op.equals("ADD"))
+						{
 							((ReOrderBufferEntry)this.rob.rob.object[e.Dest]).value=op1+op2;
+							
+						}
+							
 						else
 							if(e.Op.equals("NAND"))
 								((ReOrderBufferEntry)this.rob.rob.object[e.Dest]).value=(~(op1&op2));
@@ -322,29 +338,34 @@ public class Scheduler {
 			{
 				
 				store=(ReOrderBufferEntry)this.rob.rob.object[j];
-				if(store!=null&&
+				if(!this.rob.rob.IsEmpty()&&
+				   store!=null&&
 				   store.instruction.type.equals("SW")&&
 				   store.timeRecordEntry.issued<load.timeRecordEntry.issued&&
 				   store.timeRecordEntry.committed==-1)
 					{
+				
 						storeFirst=true;
 						break;
 					}
 			}
 			int firstLoadDest=e.Vj+e.A;
-			if((e!=null&&e.Qj==-1&&(!storeFirst||(storeFirst&&store.dest!=-1&&store.dest!=firstLoadDest&&e.remainingCycles==-1)))||(e!=null&&e.remainingCycles!=-1))
+	
+			if((e!=null&&e.Qj==-1&&(!storeFirst||(storeFirst&&store.dest!=-1&&store.dest!=firstLoadDest&&e.remainingCycles==-1)))||(e!=null&&e.remainingCycles!=-1&&firstLoadDest!=-1))
 			{
 				
 				
 				if(e.remainingCycles==-1)
 				{
-				
+					
 					e.A+=e.Vj;
-					System.out.println(e.A);
+					
 					MemoryWordTimeStamp mwts=this.memory.DataCache.ReadWord(e.A);
 					((ReOrderBufferEntry)this.rob.rob.object[e.Dest]).value=((DataWord) mwts.words[0]).data;
 					e.remainingCycles=mwts.latency;
 					load.instruction.latency=mwts.latency;
+					
+					
 				}
 				else
 					if(e.remainingCycles==0)
@@ -356,6 +377,7 @@ public class Scheduler {
 					else
 						if(e.remainingCycles!=-6)
 							e.remainingCycles--;
+				
 						
 			}
 				
@@ -415,6 +437,7 @@ public class Scheduler {
 			if(type.equals(InstructionWord.LW))
 			{
 				this.regFile.registers[head.dest]=head.value;
+				
 				head.timeRecordEntry.committed=clock;
 				this.timeTable.timeRecords.add(head.timeRecordEntry);
 				if(this.registerStatus.registerStatus[head.dest]==rob.rob.head)
@@ -424,12 +447,10 @@ public class Scheduler {
 			}
 			if(type.equals(InstructionWord.SW))
 			{
-					int latency= this.memory.DataCache.WriteWord(new DataWord(head.dest,head.value));
+					this.memory.DataCache.WriteWord(new DataWord(head.dest,head.value));
 					head.timeRecordEntry.committed=clock;
 					this.timeTable.timeRecords.add(head.timeRecordEntry);
-					head.remainingCycles=latency;
 					rob.rob.DeQueue();
-				//System.out.println(((DataWord)this.memory.DataCache.ReadWord(head.dest).words[0]).data);
 				return;
 				
 			}
@@ -460,13 +481,13 @@ public class Scheduler {
 					this.rs.Load.clear();
 					this.rs.Store.clear();
 					this.rs.Mul.clear();
+					
 
 				}
 				else
 				{
 					rob.rob.DeQueue();
 				}
-					
 				return;
 			}
 			else
@@ -589,12 +610,14 @@ public class Scheduler {
 			int executed=re.timeRecordEntry.executed;
 			if(e!=null&&re.timeRecordEntry.executed!=-1&&re.timeRecordEntry.writeback==-1&&e.remainingCycles==-6&&clock>executed)
 			{
+				
 				for(int j=0;j<this.rs.Add.size();j++)
 				{
-
+					
 					ReservationStationsEntry waiting=this.rs.Add.get(j);
 					if(waiting!=null&&(waiting.Qj==e.Dest||waiting.Qk==e.Dest))
 					{
+						
 						if(waiting.Qj==e.Dest)
 						{
 							waiting.Qj=-1;
@@ -631,6 +654,7 @@ public class Scheduler {
 					ReservationStationsEntry waiting=this.rs.Load.get(j);
 					if(waiting!=null&&(waiting.Qj==e.Dest||waiting.Qk==e.Dest))
 					{
+						
 						if(waiting.Qj==e.Dest)
 						{
 							waiting.Qj=-1;
@@ -650,6 +674,7 @@ public class Scheduler {
 					ReservationStationsEntry waiting=this.rs.Store.get(j);
 					if(waiting!=null&&(waiting.Qj==e.Dest||waiting.Qk==e.Dest))
 					{
+						
 						if(waiting.Qj==e.Dest)
 						{
 							waiting.Qj=-1;
@@ -734,13 +759,17 @@ public class Scheduler {
 					ReservationStationsEntry waiting=this.rs.Load.get(j);
 					if(waiting!=null&&(waiting.Qj==e.Dest||waiting.Qk==e.Dest))
 					{
+						
 						if(waiting.Qj==e.Dest)
 						{
+							
 							waiting.Qj=-1;
 							waiting.Vj=re.value;
+							
 						}
 						if(waiting.Qk==e.Dest)
 						{
+							
 							waiting.Qk=-1;
 							waiting.Vk=re.value;
 						}

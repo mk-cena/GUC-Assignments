@@ -24,8 +24,7 @@ public class InstructionWord extends MemoryWord{
 		super(address);
 		this.latency=latency;
 		this.type=type;
-		if(type.equals("LW")||type.equals("SW"))
-			this.latency=-1;
+
 	}
 	//Load-Store
 	public InstructionWord(int address,int latency, String type, int Rd, int Rs, int Rt, int imm)

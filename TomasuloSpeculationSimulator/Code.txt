@@ -1,19 +1,29 @@
 #Code
 Start Address:0
+ADDI $5 $0 5
+ADDI $4 $4 5
+ADDI $2 $2 1
+BEQ $5 $2 2
+JMP -8
+SW $5 $0 20
+LW $1 $0 20
+JALR 4
+LW $1 $0 20
+END
 ADDI $3 $0 26
 ADDI $6 $0 18
 ADDI $6 $6 2
-LW $2 $6 0
-ADD $2 $2 $2
+LW $4 $6 0
+ADD $2 $2 $4
 SW $2 $6 0
 BEQ $6 $3 2
 JMP -12
-LW $3 $0 20
-END
+LW $3 $6 0
+RET
 #Data
 Address:Data
-20:6
-22:6
-24:6
-26:6
+20:10
+22:10
+24:10
+26:10
 28:6
