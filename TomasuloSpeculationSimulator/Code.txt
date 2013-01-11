@@ -1,0 +1,28 @@
+#Code
+Start Address:0
+ADDI $5 $0 5
+ADDI $4 $4 5
+ADDI $2 $2 1
+BEQ $5 $2 2
+JMP -8
+SW $4 $0 18
+LW $4 $0 18
+JALR 4
+ADD $4 $4 $4
+END
+ADDI $3 $0 26
+ADDI $6 $0 18
+ADDI $6 $6 2
+LW $1 $6 0
+ADD $2 $2 $1
+SW $2 $6 0
+BEQ $6 $3 2
+JMP -12
+LW $3 $6 0
+RET
+#Data
+Address:Data
+20:10
+22:10
+24:10
+26:10
